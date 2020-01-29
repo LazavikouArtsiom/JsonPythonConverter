@@ -18,7 +18,32 @@ class FileManager:
 
 class Converter:
 
-    def _try_to_get_csv_file(file):
+    def __new__(cls, file):
+        if file.endswith(".csv"):
+            return CsvToJson()
+        elif file.endswith(".json"):
+            return JsonToCsv()
+        else:
+            return False
+    
+    def __init__(self, file):
+        self.file = _try_to_get_file(file)
+
+    def _try_to_get_file(self):
+        raise NotImplementedError("_try_to_get_file is not implemented")
+
+    def _get_headers(self):
+        raise NotImplementedError("_get_headers is not implemented")
+
+    def parse(self):
+        pass
+
+
+class CsvToJson(Converter):
+    def __init__(self, filename):
+        self.file = filename
+
+    def _try_to_get_file(file):
         try:
             if not os.path.exists(file):
                 raise FileExistsError  # Написать, что файл не существует
@@ -34,36 +59,6 @@ class Converter:
             print("Wrong extencion. It must be .csv")
         else:
             return file
-
-    def _try_to_get_json_file(file):
-        try:
-            if not file.endswith(".json"):
-                raise FileExtensionError  # Создать Exception
-            elif os.path.exists(file):
-                raise FileExistsError  # Написать, что файл уже существует
-        except FileExtensionError:
-            print("Wrong extencion. It must be .json")
-        except FileExistsError:
-            print("File is already exist")
-        else:
-            return file
-
-    def __new__(cls, file):
-        if file.endswith(".csv"):
-            return CsvToJson(_try_to_get_csv_file(file))
-        elif file.endswith(".json"):
-            return JsonToCsv(_try_to_get_json_file(file))
-
-    def _get_headers(self):
-        raise NotImplementedError("_get_headers is not implemented")
-
-    def parse(self):
-        pass
-
-
-class CsvToJson(Converter):
-    def __init__(self, filename):
-        self.file = filename
 
     def _get_headers(self):
         '''
@@ -117,8 +112,19 @@ class CsvToJson(Converter):
             self.parse()
 
 
-class JsonToCsv:
-    pass
+class JsonToCsv(Converter):
+    def _try_to_get_file(file):
+        try:
+            if not file.endswith(".json"):
+                raise FileExtensionError  # Создать Exception
+            elif os.path.exists(file):
+                raise FileExistsError  # Написать, что файл уже существует
+        except FileExtensionError:
+            print("Wrong extencion. It must be .json")
+        except FileExistsError:
+            print("File is already exist")
+        else:
+            return file
 
 
 if __name__ == "__main__":
