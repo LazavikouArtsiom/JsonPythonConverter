@@ -34,9 +34,11 @@ class FileManager:
 #VVESTI DELIMETR, ZAMENIT' V SPLITAH , AND ; NA DELIMETR
 class Converter:
 
+    delimeter = '' 
     file = ''
 
-    def __new__(cls, file):
+    def __new__(cls, file, delimeter=','):
+        cls.delimeter = delimeter
         if file.endswith(".csv"):
             cls.file = file
             return CsvToJson()
@@ -67,18 +69,22 @@ class Converter:
                 raise FileExistsError("File doesn't exist")
             elif os.stat(file).st_size == 0:
                 raise FileIsEmptyError("File is empty")
+            elif not file.endswith('.json') and not file.endswith('.csv'):
+                raise FileExtensionError("Wrong extension")
             else:
                 return True
         except FileExistsError:
             cls.file = input("File doesn't exist. Choose another file : ")
             cls._try_to_get_file(cls.file)
-
-            return True  
+            return True
 
         except FileIsEmptyError:
             cls.file = input("File is empty. Choose another file : ")
             cls._try_to_get_file(cls.file)
-
+    
+        except FileExtensionError:
+            cls.file = input("File you chose has wrong extension. Choose another file : ")
+            cls._try_to_get_file(cls.file)
             return True
 
 
@@ -89,7 +95,7 @@ class CsvToJson(Converter):
     @classmethod
     def _get_header(cls):
         with FileManager(cls.file, 'r') as f:
-            _headers = f.readline().rstrip().split(sep=',')
+            _headers = f.readline().rstrip().split(sep=cls.delimeter)
             return _headers
 
     @classmethod
@@ -131,19 +137,20 @@ class JsonToCsv(Converter):
     
     @classmethod
     def _write_to_file(cls):
+        _header = cls._get_header()
         _len_of_headers = len(cls._get_header())
         _values = cls._get_values()
         result = []
 
         file = input("Enter name of .csv file ")
         with FileManager(file, 'x') as f:
-            f.write(','.join(_header) + '\n')
+            f.write(cls.delimeter.join(_header) + '\n')
             _i = 0 
             for value in _values:
                 if not _i == 0 and (_i+1) % _len_of_headers == 0:
                     result.append(value[0][1:-1] + '\n')
                 else: 
-                    result.append(value[0][1:-1] + ';')
+                    result.append(value[0][1:-1] + cls.delimeter)
                 _i += 1
             f.write(''.join(result))
         return True
@@ -158,5 +165,5 @@ class JsonToCsv(Converter):
 
 
 if __name__ == "__main__":
-    k = Converter('finally.json')
+    k = Converter('finally.json', ';')
     print(k.parse())
