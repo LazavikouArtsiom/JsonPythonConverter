@@ -1,10 +1,9 @@
 import os
-from abc import abstractmethod, ABC
 from filemanager import FileManager
 from converterexceptions import *
-#import io
-#import tokenize
-#from operator import itemgetter
+import io
+import tokenize
+from operator import itemgetter
 
 
 class Converter:
@@ -114,7 +113,7 @@ class CsvToJson(Converter):
     #     return [x for x in tokenize_string(line) if x != ',' and x != ';']
 
     @classmethod
-    def _get_values(cls):
+    def _get_values_with_semicolon_delimeter(cls):
         _headers = cls._get_header()
         _values = []
         with FileManager(cls.file, 'r') as f:
@@ -131,9 +130,67 @@ class CsvToJson(Converter):
                 _values.append(result)
             return _values
 
+    
+    @classmethod
+    def _recursive_filter(cls, line, result=None):
+        line = line.replace('""', '')
+        try:
+            if not result:
+                result = []
+            line = line.strip()
+            if line.startswith('"'):
+                temp = ''
+                i = 0
+                while line[i+1] != '"':
+                    temp += line[i]
+                    i += 1
+                else:
+                    temp += f'{line[i]}"'
+                    result.append(temp)
+                    line = line[len(temp):].strip(', ')
+                    cls._recursive_filter(line, result)
+            else:
+                temp = ''
+                i = 0
+                while line[i] != ',':
+                    temp += line[i]
+                    i += 1
+                else:
+                    temp += ','
+                    result.append(temp)
+                    line = line[len(temp):]
+                    cls._recursive_filter(line, result)
+            return [x.strip(', "') for x in result]
+        except IndexError:
+            if temp:
+                result.append(temp)
+
+    @classmethod
+    def _get_values_with_comma_delimeter(cls):
+        _headers = cls._get_header()
+        _values = []
+        with FileManager(cls.file, 'r') as f:
+            for line in f.readlines()[1:]:
+                result = '\n'
+                for i, item in enumerate(cls._recursive_filter(line), 0):
+                    if not item.strip().isdigit():
+                        result += '\t"' + _headers[i] + \
+                            '":"' + item.strip() + '",\n'
+                    else:
+                        result += '\t"' + _headers[i] + \
+                            '":' + item.strip() + ",\n"
+                _values.append(result)
+            return _values
+
+
+
+
     @classmethod
     def _get_all_data(cls):
-        _values = cls._get_values()
+        if cls.delimiter == ';':
+            _values = cls._get_values_with_semicolon_delimeter()
+        else:
+            _values = cls._get_values_with_comma_delimeter()
         _result = '[\n'
         _end = '\n]'
         for i in range(len(_values)):
@@ -216,5 +273,5 @@ class JsonToCsv(Converter):
 
 
 if __name__ == "__main__":
-    k = Converter('l.json', ';')
+    k = Converter('comma.csv', ',')
     k.parse()
