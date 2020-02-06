@@ -1,10 +1,7 @@
 import os
 from filemanager import FileManager
 from converterexceptions import *
-import io
-import tokenize
-from operator import itemgetter
-
+import randomizer
 
 class Converter:
 
@@ -104,13 +101,6 @@ class CsvToJson(Converter):
             _headers = f.readline().rstrip().split(sep=cls.delimiter)
             return _headers
 
-    # @classmethod
-    # def _get_line(cls, line):
-    #     def tokenize_string(line):
-    #         tokens = tokenize.tokenize(io.BytesIO(line.strip().encode()).readline)
-    #         next(tokens)  # skip encoding token
-    #         return list(filter(None, map(itemgetter(1), tokens)))  # filter ENDMARKER
-    #     return [x for x in tokenize_string(line) if x != ',' and x != ';']
 
     @classmethod
     def _get_values_with_semicolon_delimeter(cls):
@@ -129,11 +119,12 @@ class CsvToJson(Converter):
                             '":' + item.strip() + ",\n"
                 _values.append(result)
             return _values
+   
+    key = randomizer.get_random_key(3)
 
-    
     @classmethod
     def _recursive_filter(cls, line, result=None):
-        line = line.replace('""', '')
+        line = line.replace('""', f'{cls.key}')
         try:
             if not result:
                 result = []
@@ -160,6 +151,7 @@ class CsvToJson(Converter):
                     result.append(temp)
                     line = line[len(temp):]
                     cls._recursive_filter(line, result)
+            result = [x.replace(f'{cls.key}', '\"') for x in result]
             return [x.strip(', "') for x in result]
         except IndexError:
             if temp:
@@ -273,5 +265,5 @@ class JsonToCsv(Converter):
 
 
 if __name__ == "__main__":
-    k = Converter('comma.csv', ',')
-    k.parse()
+    converter = Converter('comma.csv', ',')
+    print(converter.parse())
