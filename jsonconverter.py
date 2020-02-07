@@ -3,19 +3,20 @@ from filemanager import FileManager
 from converterexceptions import *
 import randomizer
 
+
 class Converter:
 
-    delimiter = ''
+    delimeter = ''
     file = ''
 
-    def __new__(cls, file, delimiter=','):
-        cls.delimiter = delimiter
+    def __new__(cls, file, delimeter=','):
+        cls.delimeter = delimeter
         if file.endswith(".csv"):
             cls.file = file
-            return CsvToJson()
+            return CsvToJson.parse()
         elif file.endswith(".json"):
             cls.file = file
-            return JsonToCsv()
+            return JsonToCsv.parse()
         else:
             raise FileExtensionError(
                 'Wrong extension. File must be end with .json or .csv')
@@ -27,18 +28,17 @@ class Converter:
            else parse first json object left part if it's .json file
            input: cls.file
            output: list of headers"""
-
-        raise NotImplementedError
+        raise NotImplementedError()
 
     @classmethod
     def _get_values(cls):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     @classmethod
     def parse(cls):
-        raise NotImplementedError
+        raise NotImplementedError()
 
-    @classmethod  # Fix opportunity to change extencion after creating
+    @classmethod
     def _try_to_get_file(cls, file, caused=None):
         """File validation.
            It checks:
@@ -78,7 +78,7 @@ class Converter:
            Fixes file extencion if it's wrong."""
 
         _file = input('Enter name of file to write :').split(".")[0]
-        if caused == "csv":  # if it's caused from CsvToJson - create .json file
+        if caused == "csv":
             _file += ".json"
         else:
             _file += ".csv"
@@ -92,15 +92,18 @@ class Converter:
 
 
 class CsvToJson(Converter):
+
     def __new__(cls):
         return cls
+    
+    def __init__(self, file):
+        self.file = file
 
     @classmethod
     def _get_header(cls):
         with FileManager(cls.file, 'r') as f:
-            _headers = f.readline().rstrip().split(sep=cls.delimiter)
-            return _headers
-
+            _headers = f.readline().rstrip().split(sep=cls.delimeter)
+        return _headers
 
     @classmethod
     def _get_values_with_semicolon_delimeter(cls):
@@ -109,7 +112,7 @@ class CsvToJson(Converter):
         with FileManager(cls.file, 'r') as f:
             for line in f.readlines()[1:]:
                 result = '\n'
-                for i, item in enumerate(line.strip("\n").split(cls.delimiter), 0):
+                for i, item in enumerate(line.strip("\n").split(cls.delimeter), 0):
 
                     if not item.strip().isdigit():
                         result += '\t"' + _headers[i] + \
@@ -118,8 +121,8 @@ class CsvToJson(Converter):
                         result += '\t"' + _headers[i] + \
                             '":' + item.strip() + ",\n"
                 _values.append(result)
-            return _values
-   
+        return _values
+
     key = randomizer.get_random_key(3)
 
     @classmethod
@@ -172,14 +175,11 @@ class CsvToJson(Converter):
                         result += '\t"' + _headers[i] + \
                             '":' + item.strip() + ",\n"
                 _values.append(result)
-            return _values
-
-
-
+        return _values
 
     @classmethod
     def _get_all_data(cls):
-        if cls.delimiter == ';':
+        if cls.delimeter == ';':
             _values = cls._get_values_with_semicolon_delimeter()
         else:
             _values = cls._get_values_with_comma_delimeter()
@@ -187,10 +187,8 @@ class CsvToJson(Converter):
         _end = '\n]'
         for i in range(len(_values)):
             if i == len(_values)-1:
-                # if it's last value - no need to put comma
                 _result += "\t{"+str(_values[i])[:-1]+"\n\t}"
             else:
-                # elif it's not - put comma
                 _result += "\t{"+str(_values[i])[:-1]+"\n\t},\n"
         _result += _end
         return _result
@@ -239,10 +237,9 @@ class JsonToCsv(Converter):
         result = []
 
         with FileManager(cls._create_file("json"), 'w') as f:
-            f.write(cls.delimiter.join(_header) + '\n')
+            f.write(cls.delimeter.join(_header) + '\n')
             _i = 0
             for value in _values:
-                # if element is last in line go next line
                 if not _i == 0 and (_i + 1) % _header_len == 0:
                     if value[0].isdigit():
                         result.append(value[0] + '\n')
@@ -250,9 +247,9 @@ class JsonToCsv(Converter):
                         result.append(value[0][1:-1] + '\n')
                 else:
                     if value[0].isdigit():
-                        result.append(value[0] + cls.delimiter)
+                        result.append(value[0] + cls.delimeter)
                     else:
-                        result.append(value[0][1:-1] + cls.delimiter)
+                        result.append(value[0][1:-1] + cls.delimeter)
                 _i += 1
             f.write(''.join(result))
         return True
@@ -266,4 +263,5 @@ class JsonToCsv(Converter):
 
 if __name__ == "__main__":
     converter = Converter('comma.csv', ',')
-    print(converter.parse())
+    converter2 = Converter('test.json', ';')
+
