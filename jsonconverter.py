@@ -96,9 +96,6 @@ class CsvToJson(Converter):
     def __new__(cls):
         return cls
     
-    def __init__(self, file):
-        self.file = file
-
     @classmethod
     def _get_header(cls):
         with FileManager(cls.file, 'r') as f:
