@@ -1,99 +1,40 @@
 import os
-from abc import abstractmethod, ABC
-
-
-class FileExtensionError(Exception):
-    def __init__(self, text):
-        self.text = text
-
-
-class FileIsAlreadyExistError(Exception):
-    def __init__(self, text):
-        self.text = text
-
-
-class FileIsEmptyError(Exception):
-    def __init__(self, text):
-        self.text = text
-
-
-class FileManager:
-    def __init__(self, filename, access_mode):
-        self.filename = filename
-        self.access_mode = access_mode
-        self.file = None
-
-    def __enter__(self):
-        self.file = open(self.filename, self.access_mode)
-        return self.file
-
-    def __exit__(self, *args, **kwargs):
-        self.file.close()
-
-
-def _map(func, *iterable):
-    # for el in zip(*iterable):
-    #     yield func(x)
-    return (func(el) for el in zip(*iterable))
-
-def _filter(func, *iterable):
-    # for el in iterable:
-    #     if func(el):
-    #         yield el
-    return (el for el in zip(*iterable) if func(el))
-
-def _reduce(func, iterable):
-    iterable = iter(iterable)
-    value = next(iterable)
-    for element in iterable:
-        value = func(value, element)
-    return value
-
+from filemanager import FileManager
+from converterexceptions import *
+import randomizer
 
 
 class Converter:
 
-    delimiter = '' 
-    file = ''
-
     def __new__(cls, file, delimiter=','):
-        cls.delimiter = delimiter
         if file.endswith(".csv"):
-            cls.file = file
-            return CsvToJson()
+            return CsvToJson(file, delimiter)
         elif file.endswith(".json"):
-            cls.file = file
-            return JsonToCsv()
+            return JsonToCsv(file, delimiter)
         else:
             raise FileExtensionError(
                 'Wrong extension. File must be end with .json or .csv')
 
-
-    @classmethod
-    def _get_header(cls):
+    def _get_header(self):
         """
-           parse first line of .csv file to list of headers if cls.file is .csv
+           parse first line of .csv file to list of headers if self.file is .csv
            else parse first json object left part if it's .json file
-           input: cls.file
+           input: self.file
            output: list of headers"""
-        
-        raise NotImplementedError
+        raise NotImplementedError()
 
-    @classmethod
-    def _get_values(cls):
-        raise NotImplementedError
+    def _get_values(self):
+        raise NotImplementedError()
 
-    @classmethod
-    def parse(cls):
-        raise NotImplementedError
+    def parse(self):
+        raise NotImplementedError()
 
-    @classmethod    #Fix opportunity to change extencion after creating
-    def _try_to_get_file(cls, file):
+    def _try_to_get_file(self, file, caused=None):
         """File validation.
            It checks:
            1. is file exist
            2. is file empty
-           3. is file has valid extencion 
+           3. is file has valid extencion
         """
         try:
             if not os.path.exists(file):
@@ -105,146 +46,206 @@ class Converter:
             else:
                 return True
         except FileExistsError:
-            cls.file = input("File doesn't exist. Choose another file : ")
-            cls._try_to_get_file(cls.file)
+            self.file = input("File doesn't exist. Choose another file : ").split(".")[
+                            0] + f'.{caused}'
+            self._try_to_get_file(self.file, caused)
             return True
 
         except FileIsEmptyError:
-            cls.file = input("File is empty. Choose another file : ")
-            cls._try_to_get_file(cls.file)
-    
+            self.file = input("File is empty. Choose another file : ").split(".")[
+                            0] + f'.{caused}'
+            self._try_to_get_file(self.file, caused)
+
         except FileExtensionError:
-            cls.file = input("File you chose has wrong extension. Choose another file : ")
-            cls._try_to_get_file(cls.file)
+            self.file = input("File you chose has wrong extension. Choose another file : ").split(
+                ".")[0] + f'.{caused}'
+            self._try_to_get_file(self.file, caused)
             return True
 
-    @classmethod
-    def _create_file(cls, caused=None):
-        """Validate file creation. 
+    def _create_file(self, caused=None):
+        """Validate file creation.
            Fixes file extencion if it's wrong."""
-        
+
         _file = input('Enter name of file to write :').split(".")[0]
-        if caused == "csv":  #if it's caused from CsvToJson - create .json file
+        if caused == "csv":
             _file += ".json"
         else:
             _file += ".csv"
         try:
             with FileManager(_file, 'x'):
                 pass
-        except FileExistsError:
+        except FileIsAlreadyExistError:
             print('File is already exist. Choose another one')
-            cls._create_file(caused)
+            self._create_file(caused)
         return _file
 
 
 class CsvToJson(Converter):
-    def __new__(cls):
-        return cls
 
-    @classmethod
-    def _get_header(cls):
-        with FileManager(cls.file, 'r') as f:
-            _headers = f.readline().rstrip().split(sep=cls.delimiter)
-            return _headers
+    def __new__(cls, file, delimiter):
+        return object.__new__(cls)
 
-    @classmethod
-    def _get_values(cls):
-        _headers = cls._get_header()
+    def __init__(self, file, delimiter):
+        self.key = randomizer.get_random_key(3)
+        self.file = file
+        self.delimiter = delimiter
+
+    def _get_header(self):
+        with FileManager(self.file, 'r') as f:
+            _headers = f.readline().rstrip().split(sep=self.delimiter)
+        return _headers
+
+    def _get_values_with_semicolon_delimiter(self):
+        _headers = self._get_header()
         _values = []
-        with FileManager(cls.file, 'r') as f:
+        with FileManager(self.file, 'r') as f:
             for line in f.readlines()[1:]:
                 result = '\n'
-                for i,item in enumerate(line.strip("\n").split(cls.delimiter), 0):
+                for i, item in enumerate(line.strip("\n").split(self.delimiter), 0):
 
                     if not item.strip().isdigit():
-                        result += '\t"' + _headers[i] + '":"' + item.strip() + '",\n'
+                        result += '\t"' + _headers[i] + \
+                                  '":"' + item.strip() + '",\n'
                     else:
-                        result += '\t"' + _headers[i] + '":' + item.strip() + ",\n"
+                        result += '\t"' + _headers[i] + \
+                                  '":' + item.strip() + ",\n"
                 _values.append(result)
-            return _values
-    
-    @classmethod
-    def _get_all_data(cls):
-        _values = cls._get_values()
+        return _values
+
+    def _recursive_filter(self, line, result=None):
+        line = line.replace('""', f'{self.key}')
+        try:
+            if not result:
+                result = []
+            line = line.strip()
+            if line.startswith('"'):
+                temp = ''
+                i = 0
+                while line[i + 1] != '"':
+                    temp += line[i]
+                    i += 1
+                else:
+                    temp += f'{line[i]}"'
+                    result.append(temp)
+                    line = line[len(temp):].strip(', ')
+                    self._recursive_filter(line, result)
+            else:
+                temp = ''
+                i = 0
+                while line[i] != ',':
+                    temp += line[i]
+                    i += 1
+                temp += ','
+                result.append(temp)
+                line = line[len(temp):]
+                self._recursive_filter(line, result)
+            result = [x.replace(f'{self.key}', '\"') for x in result]
+            return [x.strip(', "') for x in result]
+        except IndexError:
+            if temp:
+                result.append(temp)
+
+    def _get_values_with_comma_delimiter(self):
+        _headers = self._get_header()
+        _values = []
+        with FileManager(self.file, 'r') as f:
+            for line in f.readlines()[1:]:
+                result = '\n'
+                for i, item in enumerate(self._recursive_filter(line), 0):
+                    if not item.strip().isdigit():
+                        result += '\t"' + _headers[i] + \
+                                  '":"' + item.strip() + '",\n'
+                    else:
+                        result += '\t"' + _headers[i] + \
+                                  '":' + item.strip() + ",\n"
+                _values.append(result)
+        return _values
+
+    def _get_all_data(self):
+        if self.delimiter == ';':
+            _values = self._get_values_with_semicolon_delimiter()
+        else:
+            _values = self._get_values_with_comma_delimiter()
         _result = '[\n'
         _end = '\n]'
         for i in range(len(_values)):
-            if i == len(_values)-1:
-                _result+="\t{"+str(_values[i])[:-1]+"\n\t}" #if it's last value - no need to put comma
+            if i == len(_values) - 1:
+                _result += "\t{" + str(_values[i])[:-1] + "\n\t}"
             else:
-                _result+="\t{"+str(_values[i])[:-1]+"\n\t},\n" #elif it's not - put comma
+                _result += "\t{" + str(_values[i])[:-1] + "\n\t},\n"
         _result += _end
         return _result
 
-    @classmethod
-    def parse(cls):
-        cls._try_to_get_file(cls.file)
-        _data = cls._get_all_data()
-        with FileManager(cls._create_file("csv"), 'w') as f:
+    def parse(self):
+        self._try_to_get_file(self.file, 'csv')
+        _data = self._get_all_data()
+        with FileManager(self._create_file("csv"), 'w') as f:
             f.write(_data)
         return True
 
-class JsonToCsv(Converter):
-    def __new__(cls):
-        return cls
 
-    @classmethod
-    def _get_header(cls):
+class JsonToCsv(Converter):
+    def __new__(cls, file, delimiter):
+        return object.__new__(cls)
+
+    def __init__(self, file, delimiter):
+        self.file = file
+        self.delimiter = delimiter
+
+    def _get_header(self):
         _not_valid = ['{\n', '}\n', '[\n']
         _headers = []
-        with FileManager(cls.file, 'r') as f:
+        with FileManager(self.file, 'r') as f:
             for line in f.readlines():
                 if not any(item in line for item in _not_valid):
                     if '},' in line:
                         return _headers
                     _headers.append(line.split(':')[0].strip('\t"'))
         return _headers
-    
-    @classmethod
-    def _get_values(cls):
-        _not_valid = ['{\n', '},\n,' ,'}', '[', ']']
-        _header_len = len(cls._get_header())
+
+    def _get_values(self):
+        _not_valid = ['{\n', '},\n,', '}', '[', ']']
+        _header_len = len(self._get_header())
         _values = []
-        with FileManager(cls.file, 'r') as f:
+        with FileManager(self.file, 'r') as f:
             for line in f.readlines():
                 if not any(item in line for item in _not_valid) and not line == ',\n':
                     _values.append([line.split(':')[-1].strip('\t\n, ')])
         return _values
-    
-    @classmethod
-    def _write_to_file(cls):
-        _header = cls._get_header()
-        _header_len = len(cls._get_header())
-        _values = cls._get_values()
+
+    def _write_to_file(self):
+        _header = self._get_header()
+        _header_len = len(self._get_header())
+        _values = self._get_values()
         result = []
 
-        with FileManager(cls._create_file("json"), 'w') as f:
-            f.write(cls.delimiter.join(_header) + '\n')
-            _i = 0 
+        with FileManager(self._create_file("json"), 'w') as f:
+            f.write(self.delimiter.join(_header) + '\n')
+            _i = 0
             for value in _values:
-                if not _i == 0 and (_i + 1) % _header_len == 0: #if element is last in line go next line
+                if not _i == 0 and (_i + 1) % _header_len == 0:
                     if value[0].isdigit():
                         result.append(value[0] + '\n')
                     else:
                         result.append(value[0][1:-1] + '\n')
                 else:
                     if value[0].isdigit():
-                        result.append(value[0] + cls.delimiter)
+                        result.append(value[0] + self.delimiter)
                     else:
-                        result.append(value[0][1:-1] + cls.delimiter) 
+                        result.append(value[0][1:-1] + self.delimiter)
                 _i += 1
             f.write(''.join(result))
         return True
 
-
-
-    @classmethod
-    def parse(cls):
-        cls._try_to_get_file(cls.file)
-        cls._write_to_file()
+    def parse(self):
+        self._try_to_get_file(self.file, 'json')
+        self._write_to_file()
         return True
 
 
 if __name__ == "__main__":
-    k = Converter('i.csv', ';')
-    k.parse()
+    converter = Converter('test.csv', ';')
+    print(f'file = {converter.file}, delimiter = {converter.delimiter}')
+    converter2 = Converter('comma.csv', ',')
+    print(f'file = {converter2.file}, delimiter = {converter2.delimiter}')
+    converter2.parse()
